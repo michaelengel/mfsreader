@@ -58,14 +58,14 @@ void writeFile(uint8_t *im, int fd, uint16_t nFirstAllocBlk, uint16_t firstBlock
 	int nextBlock = firstBlock;
 	int blkn = nFirstAllocBlk * BLOCKSIZE;
 	uint8_t *pos;
+	int size = len;
 
 	while (nextBlock >= 2) {
-		printf("Block %d\n", nextBlock);
-
 		pos = im + blkn + ALLOCBLOCKSIZE * (nextBlock - 2);
-		write(fd, pos, ALLOCBLOCKSIZE);
+		write(fd, pos, (size < ALLOCBLOCKSIZE) ? size : ALLOCBLOCKSIZE);
 
 		nextBlock = allocBM[nextBlock];
+		size = size - ALLOCBLOCKSIZE;
 	}
 }
 
@@ -97,7 +97,6 @@ void readdir(uint8_t *im, uint16_t nFirstAllocBlk, uint16_t firstBlock, uint16_t
 
 		// write data and resource forks
 		snprintf(exfn, 256+5, "%s.DATA", fn);
-                printf("Writing %s\n", exfn);
 
 		fd = open(exfn, O_CREAT|O_WRONLY, 0666);
 		if (fd < 0) {
@@ -108,14 +107,13 @@ void readdir(uint8_t *im, uint16_t nFirstAllocBlk, uint16_t firstBlock, uint16_t
 		close(fd);
 
 		snprintf(exfn, 256+5, "%s.RSRC", fn);
-                printf("Writing %s\n", exfn);
 
 		fd = open(exfn, O_CREAT|O_WRONLY, 0666);
 		if (fd < 0) {
 	                fprintf(stderr, "open(%s) failed\n", exfn);
 			exit(1);
 		}
-		writeFile(im, fd, nFirstAllocBlk, b2l16(d->flRStBlk), b2l32(d->flLgLen));
+		writeFile(im, fd, nFirstAllocBlk, b2l16(d->flRStBlk), b2l32(d->flRLgLen));
 		close(fd);
 
 		if (pos % BLOCKSIZE > BLOCKSIZE - 51) {
