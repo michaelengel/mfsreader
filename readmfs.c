@@ -79,7 +79,7 @@ void readdir(uint8_t *im, uint16_t nFirstAllocBlk, uint16_t firstBlock, uint16_t
 
 	pos = firstBlock * BLOCKSIZE;
 
-	while (n < nFiles) {
+	while (n < nBlocks) {
 		d = (mfs_dir_entry *)(im + pos);
 
 		memcpy(fn, &(d->flName), d->flNam);
@@ -95,32 +95,35 @@ void readdir(uint8_t *im, uint16_t nFirstAllocBlk, uint16_t firstBlock, uint16_t
 
 		pos = pos + 51 + ((d->flNam % 2) ? d->flNam : d->flNam+1);
 
-		// write data and resource forks
-		snprintf(exfn, 256+5, "%s.DATA", fn);
-
-		fd = open(exfn, O_CREAT|O_WRONLY, 0666);
-		if (fd < 0) {
-	                fprintf(stderr, "open(%s) failed\n", exfn);
-			exit(1);
+		// write file only if entry is used
+		if (d->flFlags & 0x80) {
+			// write data and resource forks
+			snprintf(exfn, 256+5, "%s.DATA", fn);
+	
+			fd = open(exfn, O_CREAT|O_WRONLY, 0666);
+			if (fd < 0) {
+		                fprintf(stderr, "open(%s) failed\n", exfn);
+				exit(1);
+			}
+			writeFile(im, fd, nFirstAllocBlk, b2l16(d->flStBlk), b2l32(d->flLgLen));
+			close(fd);
+	
+			snprintf(exfn, 256+5, "%s.RSRC", fn);
+	
+			fd = open(exfn, O_CREAT|O_WRONLY, 0666);
+			if (fd < 0) {
+		                fprintf(stderr, "open(%s) failed\n", exfn);
+				exit(1);
+			}
+			writeFile(im, fd, nFirstAllocBlk, b2l16(d->flRStBlk), b2l32(d->flRLgLen));
+			close(fd);
 		}
-		writeFile(im, fd, nFirstAllocBlk, b2l16(d->flStBlk), b2l32(d->flLgLen));
-		close(fd);
-
-		snprintf(exfn, 256+5, "%s.RSRC", fn);
-
-		fd = open(exfn, O_CREAT|O_WRONLY, 0666);
-		if (fd < 0) {
-	                fprintf(stderr, "open(%s) failed\n", exfn);
-			exit(1);
-		}
-		writeFile(im, fd, nFirstAllocBlk, b2l16(d->flRStBlk), b2l32(d->flRLgLen));
-		close(fd);
 
 		if (pos % BLOCKSIZE > BLOCKSIZE - 51) {
 			printf("Skipping to next block\n");
 			pos = (pos + BLOCKSIZE) / BLOCKSIZE * BLOCKSIZE;
+			n++;
 		}
-		n++;
 	}
 }
 
